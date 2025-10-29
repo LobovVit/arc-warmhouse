@@ -1,0 +1,42 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+LAYOUT_TOP_DOWN()
+
+Person(user, "Пользователь", "Владелец дома. Управляет устройствами и смотрит телеметрию через веб или мобильное приложение.")
+System(sensor, "Устройства и датчики", "Физические модули отопления, термодатчики, шлюзы Zigbee/Matter.")
+System_Ext(cloudPartner, "Партнёрские облака", "Интеграция по MQTT/HTTP с устройствами других производителей.")
+
+System_Boundary(system, "Платформа SmartHome (To-Be)") {
+  System(apiGateway, "API Gateway", "Точка входа для всех клиентов. Делегирует запросы микросервисам, обеспечивает авторизацию и маршрутизацию.")
+  System(heatingSvc, "Heating Service", "Управление отоплением: режимы, уставки, подтверждение исполнения.")
+  System(telemetrySvc, "Telemetry Service", "Приём и хранение показаний температуры и других сенсоров.")
+  System(deviceSvc, "Device Registry & Twin", "Регистрация устройств, статус соединения, модель twin (desired/reported).")
+  System(identitySvc, "Identity & Access", "Аутентификация пользователей и управление доступом к домам/устройствам.")
+  System(automationSvc, "Automation/Rules", "Сценарии 'если-то', расписания, гео-триггеры.")
+  System(billingSvc, "Billing", "Тарифы и квоты (для SaaS).")
+  SystemDb(timeseriesDb, "TimescaleDB/ClickHouse", "Хранение телеметрии.")
+  SystemDb(pgMain, "PostgreSQL", "OLTP-данные: пользователи, устройства, дома, сценарии.")
+  SystemQueue(broker, "MQTT/NATS", "Шина событий и команд между сервисами и устройствами.")
+}
+
+' Связи
+Rel(user, apiGateway, "REST / WebSocket", "HTTPS + JWT")
+Rel(apiGateway, identitySvc, "OIDC / Auth", "REST")
+Rel(apiGateway, heatingSvc, "REST")
+Rel(apiGateway, telemetrySvc, "REST / SSE")
+Rel(apiGateway, deviceSvc, "REST / MQTT downlink")
+Rel(apiGateway, automationSvc, "REST")
+Rel(apiGateway, billingSvc, "REST")
+
+Rel(deviceSvc, broker, "Подписка на MQTT топики", "MQTT QoS1/2")
+Rel(sensor, broker, "Публикация телеметрии", "MQTT")
+Rel(telemetrySvc, broker, "Читает телеметрию", "MQTT / NATS")
+Rel(heatingSvc, broker, "Отправляет команды устройствам", "MQTT")
+Rel(telemetrySvc, timeseriesDb, "Записывает измерения", "SQL")
+Rel(heatingSvc, pgMain, "Чтение/запись конфигураций", "SQL")
+Rel(identitySvc, pgMain, "Пользовательские данные", "SQL")
+Rel(deviceSvc, pgMain, "Метаданные устройств", "SQL")
+Rel(automationSvc, broker, "События сценариев", "MQTT/NATS")
+Rel(cloudPartner, broker, "Интеграция с внешними устройствами", "MQTT bridge")
+
+@enduml

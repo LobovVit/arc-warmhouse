@@ -1,0 +1,19 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+LAYOUT_LEFT_RIGHT()
+' Акторы
+Person(user, "Пользователь", "Владелец дома. Управляет отоплением и смотрит температуру через веб-интерфейс.")
+System(sensor, "Датчики и исполнительные устройства", "Физические устройства в домах: термодатчики, контроллеры отопления. Связь по интернету/локальному шлюзу.")
+SystemDb(db, "PostgreSQL", "Реляционная БД: пользователи, устройства/датчики, текущие значения, состояния.")
+
+' как есть
+System_Boundary(monolith_boundary, "Монолитное приложение (Go)") {
+  System(monolith, "Smart Home Monolith", "Веб-API + бизнес-логика + доступ к данным. Управление отоплением и мониторинг температуры.")
+}
+
+' Взаимодействия
+Rel(user, monolith, "HTTP/HTTPS (Web UI / REST)", "Синхронно, запрос-ответ")
+Rel(monolith, db, "SQL (pgx)", "Синхронно")
+Rel(monolith, sensor, "HTTP/прямые вызовы адаптера", "Синхронные запросы/опрашивание")
+
+@enduml
