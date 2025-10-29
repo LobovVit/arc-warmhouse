@@ -32,7 +32,7 @@ jobs:
 
       - name: Generate Diagrams
         run: |
-          java -jar plantuml.jar schemas/*.puml
+          java -jar plantuml.jar docs/**/*.puml -o ../images
 
       - name: Cleanup jar
         run: rm -f plantuml.jar || true

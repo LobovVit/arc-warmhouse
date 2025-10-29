@@ -71,10 +71,10 @@
 ### 5. Визуализация контекста системы — диаграмма С4
 
 **Рис. 1. Контекстная диаграмма текущего монолита (As-Is).**
-![As-Is-C4-Context](./schemas/As-Is-C4-Context.png)
+![As-Is-C4-Context](docs/images/As-Is-C4-Context.png)
 
 **Рис. 2. Контекстная диаграмма проектируемой системы (To-Be).**
-![To-Be-C4-Context](./schemas/To-Be-C4-Context.png)
+![To-Be-C4-Context](docs/images/To-Be-C4-Context.png)
 
 # Задание 2. Проектирование микросервисной архитектуры
 
@@ -82,22 +82,22 @@
 
 **Рис. 3. Диаграмма контейнеров (To-Be)**
 
-![To-Be-C4-Containers](./schemas/To-Be-C4-Containers.png)
+![To-Be-C4-Containers](docs/images/To-Be-C4-Containers.png)
 
 **Рис. 4. Диаграмма компонентов (To-Be)**
 
-![To-Be-C4-Components](./schemas/To-Be-C4-Components.png)
+![To-Be-C4-Components](docs/images/To-Be-C4-Components.png)
 
 **Рис. 5. Диаграмма кода (To-Be)**
 
-![To-Be-C4-Code](./schemas/To-Be-C4-Code.png)
+![To-Be-C4-Code](docs/images/To-Be-C4-Code.png)
 
 # Задание 3. Разработка ER-диаграммы
 
 Добавьте сюда ER-диаграмму. Она должна отражать ключевые сущности системы, их атрибуты и тип связей между ними.
 **Рис. 6. ER-диаграмма (To-Be)**
 
-![To-Be-ERD](./schemas/To-Be-ERD.png)
+![To-Be-ERD](docs/images/To-Be-ERD.png)
 
 # Задание 4. Создание и документирование API
 
