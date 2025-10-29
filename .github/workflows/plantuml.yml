@@ -82,10 +82,10 @@ jobs:
 
       - name: Show PR link
         if: steps.cpr.outputs.pull-request-url
-        run:
+        run: |
           echo "✅ Pull Request: ${{ steps.cpr.outputs.pull-request-url }}"
 
       - name: Explain why PR not created
         if: steps.stage.outputs.has_changes != 'true'
-        run:
+        run: |
           echo "ℹ️ PR не создан: изменений нет или git их не видит. Смотри вывод шагов 'Verify generated files' и 'git check-ignore'."
