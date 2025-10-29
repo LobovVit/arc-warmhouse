@@ -1,0 +1,37 @@
+@startuml
+' Диаграмма уровня кода
+title Device Service - Code Level Diagram
+
+class Device {
+    +ID: uuid
+    +Name: string
+    +Type: string
+    +Status: string
+    +FirmwareVersion: string
+    +LastSeen: time.Time
+}
+
+class DeviceTwin {
+    +DeviceID: uuid
+    +Desired: json.RawMessage
+    +Reported: json.RawMessage
+    +UpdatedAt: time.Time
+}
+
+interface DeviceRepository {
+    +FindByID(id uuid.UUID): Device
+    +Save(device Device): error
+    +UpdateTwin(twin DeviceTwin): error
+}
+
+class TwinManager {
+    +SyncDesiredReported()
+    +HandleUpdate()
+}
+
+Device "1" -- "1" DeviceTwin : twin
+DeviceRepository --> Device : persist
+DeviceRepository --> DeviceTwin : persist
+TwinManager --> DeviceRepository : uses
+
+@enduml
