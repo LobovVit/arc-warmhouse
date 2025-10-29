@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - warmhouse
   pull_request:
     branches:
       - main
