@@ -2,16 +2,12 @@ name: PlantUML Diagrams
 
 on:
   push:
-    branches: [ main, warmhouse ]
+    branches:
+      - main
+      - warmhouse
   pull_request:
-    branches: [ main ]
-
-permissions:
-  contents: write
-
-concurrency:
-  group: plantuml-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - main
 
 jobs:
   generate-diagrams:
@@ -19,52 +15,27 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v2
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v2
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '11'
+          java-package: 'jdk'
 
-      - name: Install PlantUML + Graphviz
+      - name: Install PlantUML
+        run: sudo apt-get install plantuml
+
+      - name: Generate Diagrams
         run: |
-          sudo apt-get update
-          sudo apt-get install -y plantuml graphviz
+          plantuml schemas/*.puml
 
-      - name: Generate diagrams (PNG + SVG)
+      - name: Commit Diagrams
         run: |
-          set -e
-          shopt -s nullglob
-          files=(schemas/*.puml)
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No .puml files in schemas/, skipping."
-            exit 0
-          fi
-          plantuml -tpng -tsvg "${files[@]}"
-
-      - name: Upload diagrams as artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: plantuml-diagrams
-          path: |
-            schemas/*.png
-            schemas/*.svg
-          if-no-files-found: ignore
-
-      - name: Commit diagrams back to repo (only on push)
-        if: github.event_name == 'push'
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add schemas/*.png schemas/*.svg || true
-          if git diff --cached --quiet; then
-            echo "No diagram changes to commit."
-            exit 0
-          fi
-          git commit -m "Automated PlantUML diagram generation"
-          git push
+          git add schemas/*.png
+          git commit -m "Automated diagram generation"
+          git push origin main
+        if: success()
