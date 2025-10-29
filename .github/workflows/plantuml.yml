@@ -49,3 +49,8 @@ jobs:
           add-paths: |
             schemas/*.png
             schemas/*.svg
+
+      - name: Show PR link
+        if: steps.cpr.outputs.pull-request-url
+        run: |
+          echo "✅ Pull Request created: ${{ steps.cpr.outputs.pull-request-url }}"
