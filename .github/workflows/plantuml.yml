@@ -40,5 +40,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add schemas/*.png
           git commit -m "Automated diagram generation"
-          git push origin main
+          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+          echo "Pushing to ${BRANCH}"
+          git push origin "HEAD:${BRANCH}"
         if: success()
