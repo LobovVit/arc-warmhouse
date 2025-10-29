@@ -1,5 +1,5 @@
 @startuml
-!include include/C4_Component.puml
+!include ./include/C4_Component.puml
 LAYOUT_LEFT_RIGHT()
 
 Container(deviceSvc, "Device Service", "Go", "Регистрация и управление устройствами")

@@ -1,5 +1,5 @@
 @startuml
-!include include/C4_Container.puml
+!include ./include/C4_Container.puml
 LAYOUT_WITH_LEGEND()
 
 System_Boundary(smarthome, "SmartHome Platform") {

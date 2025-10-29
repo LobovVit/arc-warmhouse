@@ -1,5 +1,5 @@
 @startuml
-!include include/C4_Context.puml
+!include ./include/C4_Context.puml
 LAYOUT_TOP_DOWN()
 
 Person(user, "Пользователь", "Владелец дома. Управляет устройствами и смотрит телеметрию через веб или мобильное приложение.")

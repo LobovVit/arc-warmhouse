@@ -1,5 +1,5 @@
 @startuml
-!include include/C4_Context.puml
+!include ./include/C4_Context.puml
 LAYOUT_LEFT_RIGHT()
 
 ' Акторы и внешние системы
