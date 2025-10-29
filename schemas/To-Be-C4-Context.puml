@@ -7,36 +7,38 @@ System(sensor, "Устройства и датчики", "Физические �
 System_Ext(cloudPartner, "Партнёрские облака", "Интеграция по MQTT/HTTP с устройствами других производителей.")
 
 System_Boundary(system, "Платформа SmartHome (To-Be)") {
-  System(apiGateway, "API Gateway", "Точка входа для всех клиентов. Делегирует запросы микросервисам, обеспечивает авторизацию и маршрутизацию.")
+  System(apiGateway, "API Gateway", "Точка входа для клиентов; авторизация и маршрутизация запросов к микросервисам.")
   System(heatingSvc, "Heating Service", "Управление отоплением: режимы, уставки, подтверждение исполнения.")
-  System(telemetrySvc, "Telemetry Service", "Приём и хранение показаний температуры и других сенсоров.")
+  System(telemetrySvc, "Telemetry Service", "Приём и хранение показаний температуры и другой телеметрии.")
   System(deviceSvc, "Device Registry & Twin", "Регистрация устройств, статус соединения, модель twin (desired/reported).")
   System(identitySvc, "Identity & Access", "Аутентификация пользователей и управление доступом к домам/устройствам.")
-  System(automationSvc, "Automation/Rules", "Сценарии 'если-то', расписания, гео-триггеры.")
+  System(automationSvc, "Automation / Rules", "Сценарии «если-то», расписания, гео-триггеры.")
   System(billingSvc, "Billing", "Тарифы и квоты (для SaaS).")
-  SystemDb(timeseriesDb, "TimescaleDB/ClickHouse", "Хранение телеметрии.")
-  SystemDb(pgMain, "PostgreSQL", "OLTP-данные: пользователи, устройства, дома, сценарии.")
-  SystemQueue(broker, "MQTT/NATS", "Шина событий и команд между сервисами и устройствами.")
+
+  ' Внутренняя инфраструктура платформы
+  System(broker, "Event/MQTT Broker", "MQTT/NATS. Транспорт событий и команд.")
+  SystemDb(pgMain, "PostgreSQL (OLTP)", "Основные метаданные: пользователи, устройства, настройки.")
+  SystemDb(timeseriesDb, "Time-Series DB", "Хранение телеметрии (временные ряды).")
 }
 
-' Связи
-Rel(user, apiGateway, "REST / WebSocket", "HTTPS + JWT")
-Rel(apiGateway, identitySvc, "OIDC / Auth", "REST")
-Rel(apiGateway, heatingSvc, "REST")
-Rel(apiGateway, telemetrySvc, "REST / SSE")
-Rel(apiGateway, deviceSvc, "REST / MQTT downlink")
+' Пользователь и внешние взаимодействия
+Rel(user, apiGateway, "HTTPS (Web/Mobile)")
+Rel(apiGateway, heatingSvc, "REST/GRPC")
+Rel(apiGateway, telemetrySvc, "REST/GRPC")
+Rel(apiGateway, deviceSvc, "REST/GRPC")
+Rel(apiGateway, identitySvc, "OAuth/OIDC / REST")
 Rel(apiGateway, automationSvc, "REST")
 Rel(apiGateway, billingSvc, "REST")
 
-Rel(deviceSvc, broker, "Подписка на MQTT топики", "MQTT QoS1/2")
+Rel(deviceSvc, broker, "Подписка на топики", "MQTT/NATS")
 Rel(sensor, broker, "Публикация телеметрии", "MQTT")
-Rel(telemetrySvc, broker, "Читает телеметрию", "MQTT / NATS")
-Rel(heatingSvc, broker, "Отправляет команды устройствам", "MQTT")
-Rel(telemetrySvc, timeseriesDb, "Записывает измерения", "SQL")
-Rel(heatingSvc, pgMain, "Чтение/запись конфигураций", "SQL")
-Rel(identitySvc, pgMain, "Пользовательские данные", "SQL")
+Rel(telemetrySvc, broker, "Читает телеметрию", "MQTT/NATS")
+Rel(heatingSvc, broker, "Команды устройствам", "MQTT/NATS")
+Rel(telemetrySvc, timeseriesDb, "Запись измерений", "SQL/HTTP")
+Rel(heatingSvc, pgMain, "Конфигурации", "SQL")
+Rel(identitySvc, pgMain, "Пользователи/доступ", "SQL")
 Rel(deviceSvc, pgMain, "Метаданные устройств", "SQL")
 Rel(automationSvc, broker, "События сценариев", "MQTT/NATS")
-Rel(cloudPartner, broker, "Интеграция с внешними устройствами", "MQTT bridge")
+Rel(cloudPartner, broker, "Интеграция", "MQTT bridge / HTTP")
 
 @enduml
