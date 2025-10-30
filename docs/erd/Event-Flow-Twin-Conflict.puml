@@ -1,0 +1,62 @@
+@startuml
+title Twin version conflict: concurrent PATCH with ETag / If-Match
+
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam ArrowThickness 1
+skinparam ResponseMessageBelowArrow true
+autonumber "<b>[#]</b> "
+
+actor "Client A" as A
+actor "Client B" as B
+participant "API Gateway / REST" as API
+participant "Twin Service" as TWIN
+database "DB (device_twin)" as DB
+
+== Both clients read current twin ==
+A -> API : GET /devices/{id}/twin
+API -> TWIN : fetch twin
+TWIN -> DB : SELECT twin(version=124)
+DB --> TWIN : version=124, desired, reported
+TWIN --> API : 200 OK\nETag: "124"\n{...}
+API --> A : 200 OK\nETag: "124"\n{...}
+
+B -> API : GET /devices/{id}/twin
+API -> TWIN : fetch twin
+TWIN -> DB : SELECT twin(version=124)
+DB --> TWIN : version=124, desired, reported
+TWIN --> API : 200 OK\nETag: "124"
+API --> B : 200 OK\nETag: "124"
+
+== Client A updates first (wins) ==
+A -> API : PATCH /devices/{id}/twin\nIf-Match: "124"\n{heating:{setpoint:22.0}}
+API -> TWIN : apply merge-patch if version==124
+TWIN -> DB : UPDATE ... SET desired=merge(...), version=125 WHERE version=124
+DB --> TWIN : rows=1 (updated)
+TWIN --> API : 200 OK\nETag: "125"\n{... version:125 ...}
+API --> A : 200 OK\nETag: "125"
+
+== Client B attempts with stale version (fails) ==
+B -> API : PATCH /devices/{id}/twin\nIf-Match: "124"\n{heating:{setpoint:21.0}}
+API -> TWIN : apply merge-patch if version==124
+TWIN -> DB : UPDATE ... WHERE version=124
+DB --> TWIN : rows=0 (version changed)
+TWIN --> API : 409 Conflict\n(Precondition failed)
+API --> B : 409 Conflict\nmessage: "version mismatch, expected 124 is 125"
+
+== B resolves by re-read and retry ==
+B -> API : GET /devices/{id}/twin
+API -> TWIN : fetch twin
+TWIN -> DB : SELECT twin(version=125)
+DB --> TWIN : version=125
+TWIN --> API : 200 OK\nETag: "125"
+API --> B : 200 OK\nETag: "125"
+
+B -> API : PATCH /devices/{id}/twin\nIf-Match: "125"\n{heating:{setpoint:21.0}}
+API -> TWIN : apply merge-patch if version==125
+TWIN -> DB : UPDATE ... SET version=126 WHERE version=125
+DB --> TWIN : rows=1
+TWIN --> API : 200 OK\nETag: "126"
+API --> B : 200 OK\nETag: "126"
+
+@enduml
