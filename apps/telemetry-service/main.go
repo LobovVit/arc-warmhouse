@@ -79,7 +79,7 @@ func getTelemetry(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/ingest", func(w http.ResponseWriter, r *http.Request) {
