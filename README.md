@@ -119,23 +119,32 @@
 
 ### 2. Документация API
 
-```make serve-docs ```
+```make docs ```  --сформировать все документы
 
-1. **[Открыть страницу OpenAPI](./docs/api/openapi/openapi.html)**
+1. **[Открыть страницу OpenAPI](./docs/api/openapi/openapi-smarthome.html)**
 2. **[Открыть страницу AsyncAPI](./docs/api/asyncapi/index.html)**
 
 # Задание 5. Работа с docker и docker-compose
 
-```docker compose down -v```
-```docker compose up --build```
+1. ```cd apps```
+2. ```docker compose down -v```
+3. ```docker compose up --build```
 
 # **Задание 6. Разработка MVP**
 
-Необходимо создать новые микросервисы и обеспечить их интеграции с существующим монолитом для плавного перехода к микросервисной архитектуре. 
 
-### **Что нужно сделать**
-
-1. Создайте новые микросервисы для управления телеметрией и устройствами (с простейшей логикой), которые будут интегрированы с существующим монолитным приложением. Каждый микросервис на своем ООП языке.
-2. Обеспечьте взаимодействие между микросервисами и монолитом (при желании с помощью брокера сообщений), чтобы постепенно перенести функциональность из монолита в микросервисы. 
-
-В результате у вас должны быть созданы Dockerfiles и docker-compose для запуска микросервисов. 
+1. Запуск
+- ```cd apps```
+- ```docker compose build```
+- ```docker compose up```
+2. temperature-api (задание 5)
+- ```curl -s "http://localhost:8081/temperature?location=Kitchen" | jq ```
+3. device-service
+- ```curl -s -X POST http://localhost:8082/devices -d '{"name":"Heater 1","type":"heater","location":"Living Room"}' -H "Content-Type: application/json"```
+- ```curl -s http://localhost:8082/devices | jq```
+- ```curl -s http://localhost:8082/devices/<ID>/twin | jq```
+- ```curl -s -X PATCH http://localhost:8082/devices/<ID>/twin -H 'Content-Type: application/json' -d '{"heating":{"setpoint":22}}'```
+- ```curl -s -X POST http://localhost:8082/heating/<ID>/setpoint -H "Content-Type: application/json" -d '{"value":22.0}' | jq```
+4. telemetry-service
+- ```curl -s -X POST http://localhost:8083/ingest -H "Content-Type: application/json" -d '{"deviceId":"demo-1","metric":"temperature","value":21.2}'```
+- ```curl -s "http://localhost:8083/telemetry/demo-1?metric=temperature&limit=10" | jq```

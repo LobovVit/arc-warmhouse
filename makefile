@@ -1,7 +1,7 @@
 # ------------------------------------------------------------
 # Warmhouse / SmartHome — Makefile
 # Генерация диаграмм (PlantUML), REST-доков (OpenAPI/Redoc),
-# и AsyncAPI-доков (MQTT) через локальный шаблон.
+# и AsyncAPI-доков (MQTT).
 # ------------------------------------------------------------
 
 # --- Исходники / каталоги ---
@@ -13,25 +13,36 @@ IMG_DIR        := ../images
 OUT_DIR        := docs/api
 DIAGS_OUT      := $(OUT_DIR)
 
-OPENAPI_SRC    := schemas/openapi-smarthome.yml
-OPENAPI_OUT    := $(OUT_DIR)/openapi/openapi.html
+### ===================== OpenAPI (Redocly) =====================
+
+# исходники
+OPENAPI_FACADE_SRC    := schemas/openapi-smarthome.yml
+OPENAPI_DEVICE_SRC    := schemas/openapi-device.yml
+OPENAPI_TELEM_SRC     := schemas/openapi-telemetry.yml
+
+# артефакты
+OPENAPI_DIR_BUNDLES   := schemas/_bundles
+OPENAPI_DIR_DOCS      := docs/api/openapi
+
+OPENAPI_FACADE_BUND   := $(OPENAPI_DIR_BUNDLES)/openapi-smarthome.bundled.yml
+OPENAPI_FACADE_HTML   := $(OPENAPI_DIR_DOCS)/openapi-smarthome.html
+OPENAPI_DEVICE_HTML   := $(OPENAPI_DIR_DOCS)/openapi-device.html
+OPENAPI_TELEM_HTML    := $(OPENAPI_DIR_DOCS)/openapi-telemetry.html
+
+# обёртка для вызова redocly из Docker
+REDOCLY := docker run --rm -v "$$(pwd)":/work -w /work redocly/cli:latest
 
 ASYNCAPI_SRC         := schemas/asyncapi-smarthome.yml
 ASYNCAPI_HTML_DIR    := $(OUT_DIR)/asyncapi
 ASYNCAPI_INDEX       := $(ASYNCAPI_HTML_DIR)/index.html
 
-# Локальный шаблон для AsyncAPI (совместим с генератором v1)
-# ASYNCAPI_TEMPLATE_DIR := docs/templates/html-template-v0.29.0
-# ASYNCAPI_TEMPLATE_GIT := https://github.com/asyncapi/html-template.git
-# ASYNCAPI_TEMPLATE_TAG := v0.28.0
-
 # ------------------------------------------------------------
 # Основные цели
 # ------------------------------------------------------------
-.PHONY: all docs redoc puml asyncapi clean serve-docs open
+.PHONY: all docs redoc diagrams openapi-docs asyncapi
 
 all: docs
-docs: redoc asyncapi puml
+docs: openapi-docs asyncapi diagrams
 	@echo "✅ All docs are ready:"
 	@echo "   - C4/ERD PNG:      $(OUT_DIR)"
 	@echo "   - OpenAPI (HTML):  $(OPENAPI_OUT)"
@@ -40,21 +51,62 @@ docs: redoc asyncapi puml
 # ------------------------------------------------------------
 # puml → png
 # ------------------------------------------------------------
-.PHONY: puml
-puml:
+.PHONY: diagrams
+diagrams:
 	@mkdir -p $(IMG_DIR)
 	@plantuml $(PUML_GLOBS) -o $(IMG_DIR)
 
 # ------------------------------------------------------------
 # OpenAPI → HTML
 # ------------------------------------------------------------
-.PHONY: redoc
-redoc:
-	@mkdir -p $(OUT_DIR)
-	@echo "📘 Building OpenAPI docs via Redocly (Docker)..."
-	docker run --rm -v "$$(pwd)":/work -w /work redocly/cli:latest \
-		build-docs $(OPENAPI_SRC) --output $(OPENAPI_OUT)
-	@echo "✅ OpenAPI docs ready at $(OPENAPI_OUT)"
+
+openapi-docs: openapi-lint redoc-facade redoc-device redoc-telemetry
+	@echo "📄 OpenAPI docs ready:"
+	@echo "   - $(OPENAPI_FACADE_HTML)"
+	@echo "   - $(OPENAPI_DEVICE_HTML)"
+	@echo "   - $(OPENAPI_TELEM_HTML)"
+
+.PHONY: openapi-lint
+openapi-lint:
+	@echo "🔍 Lint OpenAPI specs..."
+	$(REDOCLY) lint $(OPENAPI_FACADE_SRC)
+	$(REDOCLY) lint $(OPENAPI_DEVICE_SRC)
+	$(REDOCLY) lint $(OPENAPI_TELEM_SRC)
+	@echo "✅ Lint OK"
+
+.PHONY: openapi-bundle-facade
+openapi-bundle-facade: $(OPENAPI_FACADE_BUND)
+
+$(OPENAPI_FACADE_BUND): $(OPENAPI_FACADE_SRC) $(OPENAPI_DEVICE_SRC) $(OPENAPI_TELEM_SRC)
+	@mkdir -p $(OPENAPI_DIR_BUNDLES)
+	@echo "🧩 Bundling facade (resolving $${ref})..."
+	$(REDOCLY) bundle $(OPENAPI_FACADE_SRC) --output $(OPENAPI_FACADE_BUND)
+	@echo "✅ Bundled → $(OPENAPI_FACADE_BUND)"
+
+.PHONY: redoc-facade redoc-device redoc-telemetry openapi-docs
+redoc-facade: openapi-bundle-facade
+	@mkdir -p $(OPENAPI_DIR_DOCS)
+	@echo "📘 Building Facade docs..."
+	$(REDOCLY) build-docs $(OPENAPI_FACADE_BUND) --output $(OPENAPI_FACADE_HTML)
+	@echo "✅ Facade docs → $(OPENAPI_FACADE_HTML)"
+
+redoc-device:
+	@mkdir -p $(OPENAPI_DIR_DOCS)
+	@echo "📗 Building Device docs..."
+	$(REDOCLY) build-docs $(OPENAPI_DEVICE_SRC) --output $(OPENAPI_DEVICE_HTML)
+	@echo "✅ Device docs → $(OPENAPI_DEVICE_HTML)"
+
+redoc-telemetry:
+	@mkdir -p $(OPENAPI_DIR_DOCS)
+	@echo "📙 Building Telemetry docs..."
+	$(REDOCLY) build-docs $(OPENAPI_TELEM_SRC) --output $(OPENAPI_TELEM_HTML)
+	@echo "✅ Telemetry docs → $(OPENAPI_TELEM_HTML)"
+
+openapi-docs: openapi-lint redoc-facade redoc-device redoc-telemetry
+	@echo "📄 OpenAPI docs ready:"
+	@echo "   - $(OPENAPI_FACADE_HTML)"
+	@echo "   - $(OPENAPI_DEVICE_HTML)"
+	@echo "   - $(OPENAPI_TELEM_HTML)"
 
 # ------------------------------------------------------------
 # AsyncAPI → HTML
@@ -67,31 +119,3 @@ asyncapi:
 		asyncapi generate fromTemplate $(ASYNCAPI_SRC) @asyncapi/html-template@0.28.0 \
 		--output $(OUT_DIR)/asyncapi --force-write
 	@echo "✅ AsyncAPI docs ready at $(OUT_DIR)/asyncapi/index.html"
-
-# ------------------------------------------------------------
-# Сервисные цели
-# ------------------------------------------------------------
-.PHONY: serve-docs open clean
-
-serve-docs:
-	@echo "🌐 Serving docs at http://localhost:8080 ..."
-	@cd docs/api && python3 -m http.server 8080
-
-open:
-	@echo "🖥  Opening docs..."
-	@if command -v xdg-open >/dev/null 2>&1; then \
-		xdg-open "$(OPENAPI_OUT)"; \
-		xdg-open "$(ASYNCAPI_INDEX)"; \
-	elif command -v open >/dev/null 2>&1; then \
-		open "$(OPENAPI_OUT)"; \
-		open "$(ASYNCAPI_INDEX)"; \
-	else \
-		echo "ℹ️  Please open manually:"; \
-		echo "    - $(OPENAPI_OUT)"; \
-		echo "    - $(ASYNCAPI_INDEX)"; \
-	fi
-
-clean:
-	@echo "🧹 Cleaning generated docs..."
-	@rm -rf $(OUT_DIR)/openapi $(ASYNCAPI_HTML_DIR)
-	@echo "✅ Clean complete"

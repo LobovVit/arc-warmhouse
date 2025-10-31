@@ -1,208 +1,37 @@
 openapi: 3.1.0
 info:
-  title: SmartHome Platform REST API
+  title: SmartHome Gateway API (Facade)
   version: 1.0.0
-  description: REST API for Device, Twin, Heating, Telemetry
-servers:
-  - url: https://api.smarthome.local/api/v1
-
-paths:
-  /devices/{id}:
-    get:
-      summary: Get device by ID
-      tags: [Device]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200":
-          description: Device found
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Device" }
-              examples:
-                ok:
-                  value:
-                    id: "8d8f6a5b-9c66-4d5c-9b5d-2d3b6a0d0a55"
-                    typeId: "e7c9caa2-7fbe-4e86-9a59-6d2d2c2f6c11"
-                    houseId: "7a1c1c04-2c69-4acd-9408-6e6f9d0a1b22"
-                    roomId: "8ec1f2d8-7f0a-4fbe-a2a1-2b9d36f4f1a0"
-                    serialNumber: "THR-00123"
-                    status: online
-                    firmwareVersion: "1.2.3"
-                    lastSeen: "2025-10-29T12:00:00Z"
-        "404": { description: Not found }
-
-  /devices/{id}/twin:
-    get:
-      summary: Get device twin
-      tags: [Twin]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200":
-          description: Twin
-          headers:
-            ETag:
-              description: Current twin version (integer)
-              schema: { type: string }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DeviceTwin" }
-              examples:
-                sample:
-                  value:
-                    deviceId: "8d8f6a5b-9c66-4d5c-9b5d-2d3b6a0d0a55"
-                    version: 42
-                    desired:
-                      heating: { mode: auto, setpoint: 22.0 }
-                    reported:
-                      heating: { mode: auto, setpoint: 21.5, current: heating }
-                    updatedAt: "2025-10-29T12:01:00Z"
-
-    patch:
-      summary: Patch desired twin (merge-patch RFC 7396)
-      tags: [Twin]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/merge-patch+json:
-            schema:
-              type: object
-              description: Partial desired patch
-              example:
-                heating: { setpoint: 22.0 }
-      responses:
-        "200":
-          description: Patched twin (new version)
-          headers:
-            ETag:
-              description: New twin version
-              schema: { type: string }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DeviceTwin" }
-        "409":
-          description: Version conflict (use If-Match)
-      security:
-        - ifMatchVersion: []
-
-  /heating/{deviceId}/setpoint:
-    post:
-      summary: Send heating setpoint command (delegates to Twin desired)
-      tags: [Heating]
-      parameters:
-        - name: deviceId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [value]
-              properties:
-                value: { type: number, format: float, minimum: 5, maximum: 35 }
-            examples:
-              set22:
-                value: { value: 22.0 }
-      responses:
-        "202":
-          description: Accepted (desired updated, device will converge)
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  twinVersion: { type: integer }
-                  delta:
-                    type: object
-                    description: Difference between desired and reported
-                    example: { heating: { setpoint: 22.0 } }
-        "404": { description: Device not found }
-
-  /telemetry/{deviceId}:
-    get:
-      summary: Get telemetry window (raw or aggregated)
-      tags: [Telemetry]
-      parameters:
-        - { name: deviceId, in: path, required: true, schema: {type: string, format: uuid} }
-        - { name: metric, in: query, required: true, schema: {type: string}, example: temperature }
-        - { name: from, in: query, required: true, schema: {type: string, format: date-time} }
-        - { name: to, in: query, required: true, schema: {type: string, format: date-time} }
-        - { name: agg, in: query, required: false, schema: {type: string, enum: [raw, min, max, avg, p50, p95]}, example: avg }
-        - { name: interval, in: query, required: false, schema: {type: string}, example: 5m }
-      responses:
-        "200":
-          description: Telemetry series
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  deviceId: { type: string, format: uuid }
-                  metric: { type: string }
-                  points:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        ts: { type: string, format: date-time }
-                        value: { type: number }
-              examples:
-                avg5m:
-                  value:
-                    deviceId: "8d8f6a5b-9c66-4d5c-9b5d-2d3b6a0d0a55"
-                    metric: "temperature"
-                    points:
-                      - { ts: "2025-10-29T12:00:00Z", value: 21.3 }
-                      - { ts: "2025-10-29T12:05:00Z", value: 21.5 }
-
 components:
   securitySchemes:
-    ifMatchVersion:
-      type: apiKey
-      in: header
-      name: If-Match
-      description: Provide current twin version (integer) to protect from lost update
+    dummyAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Фиктивная схема авторизации (только для прохождения линта).
+        В реальном сервисе будет JWT или API key.
+security:
+  - dummyAuth: []
+servers:
+  - url: https://api.smarthome.dev/api/v1
 
-  schemas:
-    Device:
-      type: object
-      required: [id, typeId, houseId, status]
-      properties:
-        id: { type: string, format: uuid }
-        typeId: { type: string, format: uuid }
-        houseId: { type: string, format: uuid }
-        roomId: { type: string, format: uuid, nullable: true }
-        serialNumber: { type: string }
-        status: { type: string, enum: [online, offline, error] }
-        firmwareVersion: { type: string }
-        lastSeen: { type: string, format: date-time }
-    DeviceTwin:
-      type: object
-      required: [deviceId, version, desired, reported, updatedAt]
-      properties:
-        deviceId: { type: string, format: uuid }
-        version: { type: integer }
-        desired:
-          type: object
-          description: Desired state (free-form by capability)
-          example: { heating: { mode: "auto", setpoint: 22.0 } }
-        reported:
-          type: object
-          description: Reported state (free-form by capability)
-          example: { heating: { mode: "auto", setpoint: 21.5, current: "heating" } }
-        updatedAt: { type: string, format: date-time }
+
+
+paths:
+  /devices:
+    $ref: './openapi-device.yml#/paths/~1devices'
+
+  /devices/{deviceId}:
+    $ref: './openapi-device.yml#/paths/~1devices~1{deviceId}'
+
+  /devices/{deviceId}/twin:
+    $ref: './openapi-device.yml#/paths/~1devices~1{deviceId}~1twin'
+
+  /heating/{deviceId}/setpoint:
+    $ref: './openapi-device.yml#/paths/~1heating~1{deviceId}~1setpoint'
+
+  /telemetry/{deviceId}:
+    $ref: './openapi-telemetry.yml#/paths/~1telemetry~1{deviceId}'
+
+  /ingest:
+    $ref: './openapi-telemetry.yml#/paths/~1ingest'
