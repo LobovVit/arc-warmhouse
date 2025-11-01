@@ -131,6 +131,7 @@
 - ```docker compose up```
 2. temperature-api (задание 5)
 - ```curl -s "http://localhost:8081/temperature?location=Kitchen" | jq ```
+- ```curl -s "http://localhost:8081/temperature/1" | jq ```
 3. device-service
 - ```curl -s -X POST http://localhost:8082/devices -d '{"name":"Heater 1","type":"heater","location":"Living Room"}' -H "Content-Type: application/json"```
 - ```curl -s http://localhost:8082/devices | jq```
