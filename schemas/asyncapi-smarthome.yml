@@ -1,0 +1,97 @@
+asyncapi: '2.6.0'
+info:
+  title: SmartHome MQTT Async API
+  version: '1.0.0'
+  description: |
+    MQTT каналы для телеметрии и twin-синхронизации.
+defaultContentType: application/json
+
+servers:
+  prod:
+    url: mqtt.smarthome.local:8883
+    protocol: mqtt
+    description: EMQX/Mosquitto broker (TLS)
+    security:
+      - mqttBasic: []
+
+channels:
+  telemetry/{deviceId}:
+    description: Device -> Cloud telemetry stream
+    parameters:
+      deviceId:
+        description: UUID устройства
+        schema: { type: string, format: uuid }
+    publish:  # устройство публикует
+      summary: Устройство отправляет телеметрию
+      message:
+        $ref: '#/components/messages/TelemetryMessage'
+
+  devices/{deviceId}/twin/reported:
+    description: Device publishes reported partial state (cloud consumes)
+    parameters:
+      deviceId:
+        schema: { type: string, format: uuid }
+    publish:  # устройство публикует reported
+      summary: Устройство публикует reported-патч twin
+      message:
+        $ref: '#/components/messages/TwinReported'
+
+  devices/{deviceId}/twin/desired:
+    description: Cloud publishes desired partial state (device consumes)
+    parameters:
+      deviceId:
+        schema: { type: string, format: uuid }
+    subscribe:  # устройство подписывается, облако публикует
+      summary: Облако публикует desired-патч twin
+      message:
+        $ref: '#/components/messages/TwinDesired'
+
+components:
+  securitySchemes:
+    mqttBasic:
+      type: userPassword
+      description: >
+        Авторизация на брокере MQTT (username/password или mTLS вне спецификации).
+
+  messages:
+    TelemetryMessage:
+      name: TelemetryMessage
+      title: Telemetry
+      summary: Измерение сенсора
+      payload:
+        $ref: '#/components/schemas/Telemetry'
+
+    TwinReported:
+      name: TwinReported
+      title: Twin reported patch
+      payload:
+        $ref: '#/components/schemas/TwinPatch'
+
+    TwinDesired:
+      name: TwinDesired
+      title: Twin desired patch
+      payload:
+        $ref: '#/components/schemas/TwinPatch'
+
+  schemas:
+    Telemetry:
+      type: object
+      required: [deviceId, ts, metric, value]
+      properties:
+        deviceId: { type: string, format: uuid }
+        ts: { type: string, format: date-time }
+        metric: { type: string, example: temperature }
+        value: { type: number, example: 21.4 }
+        unit: { type: string, example: C }
+      examples:
+        - deviceId: "8d8f6a5b-9c66-4d5c-9b5d-2d3b6a0d0a55"
+          ts: "2025-10-29T12:00:00Z"
+          metric: temperature
+          value: 21.4
+          unit: C
+
+    TwinPatch:
+      type: object
+      description: Частичный патч состояния (merge semantics на стороне потребителя)
+      examples:
+        - heating: { setpoint: 22.0 }

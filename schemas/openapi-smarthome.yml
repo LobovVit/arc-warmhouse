@@ -1,0 +1,37 @@
+openapi: 3.1.0
+info:
+  title: SmartHome Gateway API (Facade)
+  version: 1.0.0
+components:
+  securitySchemes:
+    dummyAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Фиктивная схема авторизации (только для прохождения линта).
+        В реальном сервисе будет JWT или API key.
+security:
+  - dummyAuth: []
+servers:
+  - url: https://api.smarthome.dev/api/v1
+
+
+
+paths:
+  /devices:
+    $ref: './openapi-device.yml#/paths/~1devices'
+
+  /devices/{deviceId}:
+    $ref: './openapi-device.yml#/paths/~1devices~1{deviceId}'
+
+  /devices/{deviceId}/twin:
+    $ref: './openapi-device.yml#/paths/~1devices~1{deviceId}~1twin'
+
+  /heating/{deviceId}/setpoint:
+    $ref: './openapi-device.yml#/paths/~1heating~1{deviceId}~1setpoint'
+
+  /telemetry/{deviceId}:
+    $ref: './openapi-telemetry.yml#/paths/~1telemetry~1{deviceId}'
+
+  /ingest:
+    $ref: './openapi-telemetry.yml#/paths/~1ingest'

@@ -1,0 +1,115 @@
+@startuml
+!define TABLE(x) class x << (T,#FFAAAA) >>
+title SmartHome ER Diagram
+
+' ======= USERS & HOUSES =======
+package "Users & Houses" as UH {
+  together {
+    TABLE(User) {
+      + id : UUID
+      email : varchar(255)
+      password_hash : varchar(255)
+      role : enum('owner','member','admin')
+      created_at : timestamptz
+    }
+
+    TABLE(House) {
+      + id : UUID
+      owner_id : UUID        ' FK -> User.id (основной владелец)
+      name : varchar(100)
+      address : text
+      created_at : timestamptz
+    }
+
+    TABLE(Membership) {
+      + user_id : UUID       ' FK -> User.id
+      + house_id : UUID      ' FK -> House.id
+      role : enum('owner','member','guest')
+    }
+
+    TABLE(Room) {
+      + id : UUID
+      house_id : UUID        ' FK -> House.id
+      name : varchar(50)
+    }
+  }
+}
+
+' ======= DEVICES & TELEMETRY =======
+package "Devices & Telemetry" as DT {
+  together {
+    TABLE(DeviceType) {
+      + id : UUID
+      name : varchar(100)
+      description : text
+      capabilities : jsonb
+    }
+
+    TABLE(Device) {
+      + id : UUID
+      type_id : UUID         ' FK -> DeviceType.id
+      house_id : UUID        ' FK -> House.id
+      room_id : UUID         ' FK -> Room.id
+      serial_number : varchar(100)
+      status : enum('online','offline','error')
+      firmware_version : varchar(50)
+      last_seen : timestamptz
+    }
+
+    TABLE(DeviceTwin) {
+      + device_id : UUID     ' PK & FK -> Device.id (1:1)
+      desired : jsonb
+      reported : jsonb
+      version : int
+      desired_version : int
+      reported_version : int
+      desired_at : timestamptz
+      reported_at : timestamptz
+      updated_at : timestamptz
+    }
+
+    TABLE(TelemetryData) {
+      + id : bigserial
+      device_id : UUID       ' FK -> Device.id
+      timestamp : timestamptz
+      metric : varchar(50)
+      value : float
+      unit : varchar(20)
+    }
+  }
+}
+
+' ======= MODULES =======
+package "Modules" as MOD {
+  together {
+    TABLE(Module) {
+      + id : UUID
+      name : varchar(100)
+      description : text
+    }
+
+    TABLE(ModuleDeviceType) {
+      + module_id : UUID      ' FK -> Module.id
+      + device_type_id : UUID ' FK -> DeviceType.id
+    }
+  }
+}
+
+' ======= FORCE PACKAGES  =======
+DT -[hidden]down-> MOD
+UH -[hidden]down-> DT
+
+' ======= RELATIONSHIPS (реальные связи) =======
+User "1" - "0..*" House : owns >
+User "1" - "0..*" Membership : access >
+House "1" - "0..*" Room : contains >
+House "1" - "0..*" Device : hosts >
+Room "1" - "0..*" Device : includes >
+DeviceType "1" - "0..*" Device : defines >
+Device "1" - "1" DeviceTwin : has >
+Device "1" - "0..*" TelemetryData : generates >
+Module "1" - "0..*" ModuleDeviceType : has >
+DeviceType "1" - "0..*" ModuleDeviceType : belongs_to >
+House "1" - "0..*" Membership : shared_with >
+
+@enduml

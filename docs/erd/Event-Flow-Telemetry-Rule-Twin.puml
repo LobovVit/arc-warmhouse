@@ -1,0 +1,58 @@
+@startuml
+title Event Flow: telemetry → rule → twin → device → ack
+
+skinparam ParticipantPadding 20
+skinparam BoxPadding 10
+skinparam ArrowThickness 1
+skinparam ResponseMessageBelowArrow true
+autonumber "<b>[#]</b> "
+
+actor User as U
+participant "Device\n(thermostat)" as D
+participant "MQTT Broker" as B
+participant "Telemetry Ingest\n(Golang svc)" as ING
+database "TimescaleDB\n(telemetry_raw, agg)" as DB
+participant "Automation Service\n(Rules Engine)" as AUTO
+participant "Twin Service\n(desired/reported)" as TWIN
+participant "API Gateway / REST" as API
+
+== Telemetry ingest ==
+D -> B : publish v1/telemetry/{deviceId}\n{"metric":"temperature","value":19.8,"ts":"...","messageId":"..."}
+B -> ING : deliver v1/telemetry/{deviceId}
+ING -> DB : INSERT telemetry_raw(deviceId, metric, value, ts, message_id)
+ING -> AUTO : event telemetry.ingested\n{deviceId, metric, value, ts}
+
+== Rule fired on telemetry ==
+AUTO -> AUTO : evaluate rule\nmetric=="temperature" && value < 20
+AUTO -> TWIN : PATCH desired (merge)\n{heating:{setpoint:22.0}}\n(optimistic via version)
+TWIN -> B : publish v1/devices/{id}/twin/desired\n{patch:{heating:{setpoint:22.0}}, version:124}
+TWIN -> B : publish v1/devices/{id}/twin/delta\n{heating:{setpoint:22.0}, version:124}
+
+== Device applies delta ==
+B -> D : deliver twin/desired + twin/delta (retained/QoS1)
+D -> D : apply setpoint 22.0
+D -> B : publish v1/devices/{id}/twin/reported\n{heating:{setpoint:22.0}, version:124}
+D -> B : publish events/command.ack\n{command:"setpoint", status:"ok", version:124}
+
+== Twin convergence ==
+B -> TWIN : deliver twin/reported (version:124)
+TWIN -> TWIN : set reported=desired (v=124)\nconverged=true
+TWIN -> API : update projection/cache (for UI)
+note over TWIN
+ Twin versioning:
+ - ETag/If-Match for REST
+ - version in MQTT payloads
+ - idempotent compare-and-apply
+end note
+
+== Optional: user-initiated command via REST ==
+U -> API : POST /heating/{id}/setpoint {value:23.0}
+API -> TWIN : PATCH desired (merge)\nIf-Match: "v124"
+TWIN --> U : 202 Accepted\nLocation: /commands/{cid}/status
+TWIN -> B : publish twin/desired + delta (version:125)
+B -> D : deliver desired/delta (v=125)
+D -> B : publish twin/reported (v=125) + command.ack
+B -> TWIN : deliver twin/reported (v=125)
+TWIN -> API : projection update (UI shows 23.0)
+
+@enduml

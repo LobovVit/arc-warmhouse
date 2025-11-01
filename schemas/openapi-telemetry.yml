@@ -1,0 +1,99 @@
+openapi: 3.1.0
+info:
+  title: Telemetry Service API
+  version: 1.0.0
+  description: Инжест телеметрии (REST MVP) и чтение последних значений.
+security:
+  - dummyAuth: []
+servers:
+  - url: https://api.smarthome.dev/api/v1
+    description: telemetry-service (local)
+
+paths:
+  /ingest:
+    post:
+      summary: Принять телеметрию (ingest)
+      tags: [Telemetry]
+      operationId: postTelemetryIngest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Telemetry' }
+            examples:
+              temperature:
+                value:
+                  deviceId: "demo-1"
+                  metric: "temperature"
+                  value: 21.2
+                  unit: "C"
+                  ts: "2025-10-30T12:00:05Z"
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: accepted }
+                  count: { type: integer, example: 42 }
+        '400':
+          description: Bad Request (невалидный payload)
+
+  /telemetry/{deviceId}:
+    get:
+      summary: Получить телеметрию устройства (последние значения)
+      tags: [Telemetry]
+      operationId: getTelemetryByDevice
+      parameters:
+        - $ref: '#/components/parameters/deviceId'
+        - in: query
+          name: metric
+          schema: { type: string, example: temperature }
+          description: Фильтр по метрике (опционально)
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, maximum: 1000 }
+          description: Сколько последних записей вернуть
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Telemetry' }
+        '400':
+          description: Bad Request (невалидные параметры)
+        '404':
+          description: Not Found (deviceId не найден)
+
+components:
+  parameters:
+    deviceId:
+      in: path
+      name: deviceId
+      required: true
+      schema: { type: string }
+      description: Идентификатор устройства (строка)
+
+  schemas:
+    Telemetry:
+      type: object
+      required: [deviceId, metric, value, ts]
+      properties:
+        deviceId: { type: string, example: "demo-1" }
+        metric: { type: string, example: temperature }
+        value:  { type: number, example: 21.6 }
+        unit:   { type: string, example: C }
+        ts:     { type: string, format: date-time }
+        messageId: { type: string, example: "9c4a-b7f0-123" }
+
+  securitySchemes:
+    dummyAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Фиктивная схема авторизации (только для прохождения линта).
+        В реальном сервисе будет JWT или API key.

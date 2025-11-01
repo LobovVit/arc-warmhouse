@@ -1,0 +1,220 @@
+openapi: 3.1.0
+info:
+  title: Device Service API
+  version: 1.0.0
+  description: CRUD устройств и Twin (desired/reported) c ETag/If-Match.
+security:
+  - dummyAuth: []
+servers:
+  - url: https://api.smarthome.dev/api/v1
+    description: device-service (local)
+
+paths:
+  /heating/{deviceId}/setpoint:
+    post:
+      summary: Установить уставку (setpoint) отопления
+      description: >
+        Команда высокого уровня. Принимается синхронно, выполняется асинхронно:
+        сервис обновляет desired twin (`{"heating":{"setpoint":<value>}}`) и возвращает **202 Accepted**.
+      tags: [Twin]
+      operationId: postHeatingSetpoint
+      parameters:
+        - in: path
+          name: deviceId
+          required: true
+          schema: { type: string }
+          description: Идентификатор устройства
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: number
+                  format: float
+                  minimum: 0
+                  example: 22.0
+      responses:
+        '202':
+          description: Accepted — команда принята; twin desired обновлён (версия инкрементирована)
+          headers:
+            Location:
+              description: URL для проверки статуса команды (опционально)
+              schema: { type: string, example: /api/v1/commands/abcd-123/status }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: accepted }
+                  deviceId: { type: string }
+                  desiredPatch:
+                    type: object
+                    example: { heating: { setpoint: 22.0 } }
+                  twinVersion: { type: integer, example: 126 }
+        '404':
+          description: Device not found
+        '409':
+          description: Version conflict (если используете If-Match)
+        '400':
+          description: Bad Request
+
+  /devices:
+    get:
+      summary: Список устройств
+      tags: [Devices]
+      operationId: listDevices
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Device' }
+        '400':
+          description: Bad Request
+    post:
+      summary: Создать устройство
+      tags: [Devices]
+      operationId: createDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, location]
+              properties:
+                name: { type: string, example: Heater 1 }
+                type: { type: string, example: heater }
+                location: { type: string, example: Living Room }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+        '400':
+          description: Bad Request
+
+  /devices/{deviceId}:
+    get:
+      summary: Получить устройство
+      tags: [Devices]
+      operationId: getDevice
+      parameters:
+        - $ref: '#/components/parameters/deviceId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+        '404':
+          description: Not Found
+        '400':
+          description: Bad Request
+
+  /devices/{deviceId}/twin:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+
+    get:
+      summary: Прочитать twin устройства
+      tags: [ Twin ]
+      operationId: getDeviceTwin
+      responses:
+        '200':
+          description: OK (возвращает ETag версии twin)
+          headers:
+            ETag:
+              description: Версия twin (weak ETag, например W/"v125")
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Twin' }
+        '404':
+          description: Not Found
+        '400':
+          description: Bad Request
+
+    patch:
+      summary: Частичное обновление desired twin (merge-patch)
+      tags: [ Twin ]
+      operationId: patchDeviceTwin
+      parameters:
+        - in: header
+          name: If-Match
+          required: false
+          description: |
+            Оптимистичная блокировка: передай ETag, полученный на GET, чтобы защититься от конфликтов.
+            Пример: If-Match: W/"v124"
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Merge-patch для desired, например {"heating":{"setpoint":22}}
+      responses:
+        '200':
+          description: OK (возвращает новую версию)
+          headers:
+            ETag:
+              description: Новая версия twin
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Twin' }
+        '404':
+          description: Not Found
+        '409':
+          description: Version conflict (If-Match mismatch)
+
+components:
+  parameters:
+    deviceId:
+      in: path
+      name: deviceId
+      required: true
+      schema: { type: string }
+      description: UUID/id устройства
+
+  securitySchemes:
+    dummyAuth:
+      type: http
+      scheme: bearer
+      description: >
+        Фиктивная схема авторизации (только для прохождения линта).
+        В реальном сервисе будет JWT или API key.
+
+  schemas:
+    Device:
+      type: object
+      required: [id, name, type, location, createdAt]
+      properties:
+        id: { type: string, example: "d4a7e3c2-..." }
+        name: { type: string }
+        type: { type: string }
+        location: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Twin:
+      type: object
+      required: [version, desired, reported, updatedAt]
+      properties:
+        version: { type: integer, example: 125 }
+        desired:
+          type: object
+          additionalProperties: true
+          example: { heating: { setpoint: 22.0 } }
+        reported:
+          type: object
+          additionalProperties: true
+          example: { heating: { setpoint: 22.0 } }
+        updatedAt: { type: string, format: date-time }

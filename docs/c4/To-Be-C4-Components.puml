@@ -1,0 +1,17 @@
+@startuml
+!include ./include/C4_Component.puml
+LAYOUT_LEFT_RIGHT()
+
+Container(deviceSvc, "Device Service", "Go", "Регистрация и управление устройствами")
+
+Component(api, "REST API Layer", "Gin/Fiber", "CRUD для устройств, endpoints регистрации/claim")
+Component(mqttHandler, "MQTT Handler", "Go MQTT Client", "Подписка на топики от устройств, маршрутизация сообщений")
+Component(twinManager, "Twin Manager", "Domain logic", "Синхронизация desired/reported состояний")
+Component(repo, "Repository", "PostgreSQL", "Хранение метаданных устройств и twin")
+
+Rel(api, twinManager, "Вызовы доменных операций")
+Rel(twinManager, mqttHandler, "Отправка команд и подписка на статусы")
+Rel(twinManager, repo, "Запись/чтение twin")
+Rel_L(api, repo, "Чтение данных", "SQL")
+
+@enduml

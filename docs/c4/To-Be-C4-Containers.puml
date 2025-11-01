@@ -1,0 +1,40 @@
+@startuml
+!include ./include/C4_Container.puml
+LAYOUT_WITH_LEGEND()
+
+System_Boundary(smarthome, "SmartHome Platform") {
+  Container(apiGateway, "API Gateway", "Go / Nginx / Kong", "Роутинг, авторизация, rate limit, REST/WebSocket точка входа")
+  Container(heatingSvc, "Heating Service", "Go", "Управление отоплением, установка целевых температур, управление профилями")
+  Container(telemetrySvc, "Telemetry Service", "Go", "Приём телеметрии, агрегация, запись в time-series БД")
+  Container(deviceSvc, "Device Registry & Twin", "Go", "Регистрация устройств, twin, MQTT-топики")
+  Container(identitySvc, "Identity Service", "Keycloak", "Аутентификация и авторизация")
+  Container(automationSvc, "Automation/Rules Service", "Python / Node.js", "Обработка сценариев и триггеров")
+  Container(billingSvc, "Billing Service", "Go", "Учёт тарифов, квоты, биллинг пользователей")
+  ContainerDb(pgMain, "PostgreSQL", "Хранилище метаданных пользователей, устройств, сценариев")
+  ContainerDb(timeseriesDb, "TimescaleDB / ClickHouse", "Хранение телеметрии и метрик")
+  ContainerQueue(broker, "MQTT / NATS Broker", "EMQX / NATS", "Асинхронная шина событий и команд")
+}
+
+Person(user, "Пользователь", "Веб или мобильное приложение")
+System_Ext(sensor, "Устройства и датчики", "Физические IoT-модули")
+
+Rel(user, apiGateway, "HTTP(S) REST / WebSocket")
+Rel(sensor, broker, "MQTT / TLS", "Отправка телеметрии, приём команд")
+Rel(apiGateway, heatingSvc, "REST")
+Rel(apiGateway, telemetrySvc, "REST")
+Rel(apiGateway, deviceSvc, "REST")
+Rel(apiGateway, identitySvc, "OIDC / REST")
+Rel(apiGateway, automationSvc, "REST")
+Rel(apiGateway, billingSvc, "REST")
+
+Rel(heatingSvc, broker, "Публикует команды устройствам")
+Rel(telemetrySvc, broker, "Подписка на телеметрию")
+Rel(deviceSvc, broker, "Регистрирует устройства, слушает их статусы")
+Rel(billingSvc, broker, "MQTT / TLS", "Прием телеметрии, отправка команд")
+
+Rel(heatingSvc, pgMain, "Read/Write")
+Rel(identitySvc, pgMain, "Read/Write")
+Rel(deviceSvc, pgMain, "Read/Write")
+Rel(telemetrySvc, timeseriesDb, "Write")
+
+@enduml
